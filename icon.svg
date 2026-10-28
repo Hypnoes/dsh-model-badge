@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Model badge">
+  <!-- A pill badge after a short text run: the plugin's whole idea, at icon scale. -->
+  <rect x="6" y="26" width="22" height="6" rx="3" fill="#8b8d93" opacity="0.55"/>
+  <rect x="34" y="20" width="24" height="18" rx="9" fill="#7aaaff" opacity="0.18"/>
+  <rect x="34" y="20" width="24" height="18" rx="9" fill="none" stroke="#7aaaff" stroke-width="2.5"/>
+  <circle cx="41" cy="29" r="2" fill="#7aaaff"/>
+  <circle cx="46" cy="29" r="2" fill="#7aaaff"/>
+  <circle cx="51" cy="29" r="2" fill="#7aaaff"/>
+</svg>

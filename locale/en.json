@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Model Badges",
+    "description": "Adds configurable version badges next to model names in the composer model selector."
+  }
+}
