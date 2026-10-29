@@ -37,53 +37,135 @@ window.__ModuleLoader__.load({
 		/** This plugin's Loader entry id — the settings namespace it reads. */
 		const ENTRY_ID = "model-badge";
 
+		/** This package's name — the `plugins.bundle.config` key and the style owner. */
+		const PACKAGE_NAME = "dsh-model-badge";
+
+		/** Locale namespace of this plugin's visible copy. */
+		const NS = "model-badge";
+
 		//#region styles
 		/**
-		 * The shipped tag's own metrics, copied from its stylesheet so the local
-		 * badges are indistinguishable from it:
-		 *
-		 *   display:inline-flex; align-items:center; border-radius:999px;
-		 *   padding:1px 8px; font-size:11px; line-height:17px; font-weight:500
-		 *
-		 * Tones follow the same shape too — coloured text over the SAME colour at
-		 * 10% opacity, not a surface fill:
-		 *
-		 *   [data-tone=info]{ color: var(--dsw-alias-state-business-primary);
-		 *                     background: color-mix(in srgb, <same> 10%, transparent) }
+		 * The one badge tone table. Every consumer — the label rendered in the
+		 * composer and the preview inside the configuration page — derives from
+		 * this list, so a tone added, renamed, or retuned here changes both at
+		 * once. `label` is the picker's display name; `token` the theme alias,
+		 * `mix` its tint strength, and `fallback` the literal colour used when a
+		 * token is renamed upstream.
 		 */
-		const TONES = {
-			info: { fg: "--dsw-alias-state-business-primary", mix: "10%" },
-			success: { fg: "--dsw-alias-state-success-primary", mix: "10%" },
-			warning: { fg: "--dsw-alias-state-warn-primary", mix: "12%" },
-			danger: { fg: "--dsw-alias-state-error-primary", mix: "10%" },
-			neutral: { fg: "--dsw-alias-label-secondary", mix: "10%" }
+		const TONES = [
+			{ id: "info", label: "Blue", token: "--dsw-alias-state-business-primary", mix: "10%", fallback: "#7aaaff" },
+			{ id: "success", label: "Green", token: "--dsw-alias-state-success-primary", mix: "10%", fallback: "#3ddc97" },
+			{ id: "warning", label: "Amber", token: "--dsw-alias-state-warn-primary", mix: "12%", fallback: "#f0b429" },
+			{ id: "danger", label: "Red", token: "--dsw-alias-state-error-primary", mix: "10%", fallback: "#ff6b6b" },
+			{ id: "neutral", label: "Grey", token: "--dsw-alias-label-secondary", mix: "10%", fallback: "#8b8d93" }
+		];
+		const TONE_BY_ID = Object.fromEntries(TONES.map((tone) => [tone.id, tone]));
+
+		//#region locales
+		/**
+		 * This plugin's visible copy, registered in `apply` through
+		 * `ctx.locale.register(NS, { zh, en })` and read with
+		 * `ctx.locale.bind(NS)`. Model and provider names never pass through
+		 * here: they come from the Host catalog and stay as the catalog spells
+		 * them.
+		 */
+		const zh = {
+			summary: "为模型名称添加版本胶囊，显示在输入区的模型选择器中。",
+			required: "必填",
+			requiredHint: "请填写标红的必填项。",
+			chooseProvider: "选择 provider",
+			providerPlaceholder: "provider id",
+			allModels: "全部模型",
+			modelPlaceholder: "model id（留空表示全部）",
+			badgePlaceholder: "如 1017、新、beta",
+			customTone: "自定义",
+			customColorPlaceholder: "#c026d3 或 --dsw-alias-…",
+			previewHint: "选择 provider 后预览",
+			badgeLabel: "胶囊文字",
+			remove: "移除",
+			loading: "正在读取配置…",
+			unavailable: "Host 未提供该项配置，插件可能未启用。",
+			hint: "规则按顺序匹配，一条规则渲染一个胶囊。留空模型表示该 provider 下的全部模型。",
+			empty: "还没有规则。没有规则时，插件不显示任何胶囊，内置标记保持原样。",
+			addRule: "添加规则",
+			readOnly: "本部署的设置为只读。",
+			unsaved: "有未保存的修改。",
+			cancel: "取消",
+			save: "保存",
+			saving: "保存中…",
+			saveRejected: "保存被拒绝：配置在编辑期间已被修改，草稿已保留，请确认后重试。",
+			notReady: "配置页尚未就绪。",
+			providerLabel: "提供方 / Provider",
+			modelLabel: "模型 / Model",
+			toneLabel: "色调 / Color"
 		};
 
-		/** Fallbacks keep the chip legible if a token is renamed upstream. */
-		const TONE_FALLBACK = {
-			info: "#7aaaff",
-			success: "#3ddc97",
-			warning: "#f0b429",
-			danger: "#ff6b6b",
-			neutral: "#8b8d93"
+		/** English copy; same keys as `zh`. */
+		const en = {
+			summary: "Adds version badges to model names in the composer model selector.",
+			required: "Required",
+			requiredHint: "Fill in the fields marked in red.",
+			chooseProvider: "Choose a provider",
+			providerPlaceholder: "provider id",
+			allModels: "All models",
+			modelPlaceholder: "model id (blank for all)",
+			badgePlaceholder: "e.g. 1017, new, beta",
+			customTone: "Custom",
+			customColorPlaceholder: "#c026d3 or --dsw-alias-…",
+			previewHint: "Preview appears once a provider is chosen",
+			badgeLabel: "Badge",
+			remove: "Remove",
+			loading: "Reading configuration…",
+			unavailable: "The Host does not serve this configuration; the plugin may be disabled.",
+			hint: "Rules match in order, and each matching rule draws one badge. A blank model matches every model of that provider.",
+			empty: "No rules yet. Without rules the plugin draws no badge and the built-in marker stays as shipped.",
+			addRule: "Add rule",
+			readOnly: "Settings are read-only on this deployment.",
+			unsaved: "Unsaved changes.",
+			cancel: "Cancel",
+			save: "Save",
+			saving: "Saving…",
+			saveRejected: "Save rejected: the configuration changed while you were editing. Your draft is kept; review it and retry.",
+			notReady: "The configuration page is not ready yet.",
+			providerLabel: "Provider",
+			modelLabel: "Model",
+			toneLabel: "Color"
 		};
-
-		const css = [
-			".dsh-model-badge-label{vertical-align:baseline;white-space:nowrap;align-items:center;gap:6px;display:inline-flex}",
-			".dsh-model-badge-label>.dsh-model-badge-pill{display:inline-flex;align-items:center;border-radius:999px;corner-shape:round;padding:1px 8px;font-size:11px;line-height:17px;font-weight:500;white-space:nowrap;color:var(--dsh-model-badge-fg);background-color:color-mix(in srgb,var(--dsh-model-badge-fg) var(--dsh-model-badge-mix),transparent)}"
-		].join("");
-		const cssId = "dsh-model-badge/LocalModelLabel.module.css";
-		if (typeof document !== "undefined" && document.querySelector("style[data-plugin-css=" + JSON.stringify(cssId) + "]") === null) {
-			const tag = document.createElement("style");
-			tag.dataset.plugin = "dsh-model-badge";
-			tag.dataset.pluginCss = cssId;
-			tag.textContent = css;
-			document.head.appendChild(tag);
-		}
+		//#endregion
 
 		/**
-		 * Resolve a configured colour into the two custom properties the stylesheet
-		 * reads: the foreground token (or literal colour) and its tint strength.
+		 * The shipped tag markup, copied rule for rule: the label wrapper and the
+		 * `Tag` primitive's `data-tone` table. The official occupant wraps the
+		 * name and places the marker as a `Tag` with `tone="info"`, so the
+		 * *geometry* here is enough — colour comes from the `data-tone` rules —
+		 * and badges placed by this plugin render exactly like the shipped `1017`.
+		 *
+		 *   .label{vertical-align:baseline;white-space:nowrap;align-items:center;
+		 *          gap:4px;display:inline-flex}
+		 *   .tag{display:inline-flex;align-items:center;border-radius:999px;
+		 *        corner-shape:round;padding:1px 8px;font-size:11px;
+		 *        line-height:17px;font-weight:500;white-space:nowrap}
+		 *   .tag[data-tone=info]{background:color-mix(in srgb,
+		 *        var(--dsw-alias-state-business-primary) 10%,transparent);
+		 *        color:var(--dsw-alias-state-business-primary)}
+		 *
+		 * A custom colour overrides only those two declarations through the
+		 * `--dsh-mb-fg` / `--dsh-mb-mix` properties pillStyle() sets.
+		 *
+		 * `labelCss` is a constant; nothing is written to the document here.
+		 * `apply` installs the sheet inside a `ctx.effect`, which also removes it
+		 * on unload. The configuration page ships its own sheet from `settings.js`.
+		 */
+		const labelCss = [
+			".dsh-model-badge-label{vertical-align:baseline;white-space:nowrap;align-items:center;gap:4px;display:inline-flex}",
+			".dsh-model-badge-pill{display:inline-flex;align-items:center;border-radius:999px;corner-shape:round;padding:1px 8px;font-size:11px;line-height:17px;font-weight:500;white-space:nowrap;background:color-mix(in srgb,var(--dsh-mb-fg) var(--dsh-mb-mix),transparent);color:var(--dsh-mb-fg)}"
+		].join("");
+
+		/**
+		 * Resolve a configured colour into the two custom properties the badge
+		 * stylesheet reads. The composer label and the configuration page's preview
+		 * both call this, so a colour can never render one way in the page and
+		 * another in the composer.
 		 *
 		 *   a known tone name  → its alias token and that tone's mix
 		 *   a `--dsw-*` token  → that token at the info mix
@@ -92,24 +174,34 @@ window.__ModuleLoader__.load({
 		 * Unset falls back to `info`.
 		 */
 		function pillStyle(color) {
-			const known = typeof color === "string" && Object.prototype.hasOwnProperty.call(TONES, color);
-			const tone = known ? TONES[color] : TONES.info;
-			const mix = known ? tone.mix : TONES.info.mix;
+			const info = TONE_BY_ID.info;
+			const known = typeof color === "string" && Object.prototype.hasOwnProperty.call(TONE_BY_ID, color);
 			if (known) {
-				const fallback = TONE_FALLBACK[color];
-				return {
-					"--dsh-model-badge-fg": "var(" + tone.fg + ", " + fallback + ")",
-					"--dsh-model-badge-mix": mix
-				};
+				const tone = TONE_BY_ID[color];
+				return { "--dsh-mb-fg": "var(" + tone.token + ", " + tone.fallback + ")", "--dsh-mb-mix": tone.mix };
 			}
 			if (typeof color === "string" && color.length > 0) {
-				const fg = color.startsWith("--dsw-") ? "var(" + color + ", " + TONE_FALLBACK.info + ")" : color;
-				return { "--dsh-model-badge-fg": fg, "--dsh-model-badge-mix": mix };
+				const fg = color.startsWith("--dsw-") ? "var(" + color + ", " + info.fallback + ")" : color;
+				return { "--dsh-mb-fg": fg, "--dsh-mb-mix": info.mix };
 			}
-			return {
-				"--dsh-model-badge-fg": "var(" + TONES.info.fg + ", " + TONE_FALLBACK.info + ")",
-				"--dsh-model-badge-mix": mix
-			};
+			return { "--dsh-mb-fg": "var(" + info.token + ", " + info.fallback + ")", "--dsh-mb-mix": info.mix };
+		}
+
+		/**
+		 * One badge as the shipped marker draws it: a tag carrying the text and a
+		 * tone. The composer label and the configuration preview both render this,
+		 * so a badge looks the same in both places.
+		 * @param rule - one matched badge rule.
+		 */
+		function pill(rule) {
+			const tone = toneOf(rule.color);
+			const custom = tone === "custom";
+			return jsx("span", {
+				className: "dsh-model-badge-pill",
+				"data-tone": custom ? undefined : tone,
+				style: custom ? pillStyle(rule.color) : undefined,
+				children: rule.badge
+			});
 		}
 		//#endregion
 
@@ -169,31 +261,147 @@ window.__ModuleLoader__.load({
 
 		//#region component
 		/**
-		 * Render the catalog name unchanged, or the name plus every badge pill.
+		 * Render the catalog name unchanged, or the name plus every badge — with
+		 * the marker's own markup: label, name span, a space, then the tag.
 		 * Non-interactive: the model selector owns clicks, focus and selection.
+		 *
+		 * The slot declares `inject` in apply(), so `provider` and `model` carry
+		 * the catalog identities. A bare `undefined` is still possible right
+		 * after a declaration change, and a throw here blanks the model selector
+		 * itself: fall back to the catalog name rather than to an error.
 		 */
 		function LocalModelLabel({ provider, model }) {
 			const snapshot = React.useSyncExternalStore(subscribeRules, readSnapshot, readSnapshot);
+			const name = model !== null && typeof model === "object" ? model.name : undefined;
+			if (provider === undefined || model === undefined) return name;
 			const badges = badgesFor(readRules(snapshot.value), provider, model);
-			if (badges.length === 0) return model.name;
+			if (badges.length === 0) return name;
+			const [first, ...rest] = badges;
 			return jsxs("span", {
 				className: "dsh-model-badge-label",
 				children: [
-					jsx("span", { children: model.name }),
-					...badges.map((rule, index) => jsx("span", {
-						key: index,
-						className: "dsh-model-badge-pill",
-						style: pillStyle(rule.color),
-						children: rule.badge
-					}))
+					jsx("span", { children: name }),
+					" ",
+					pill(first),
+					...rest.map((rule) => pill(rule))
 				]
 			});
 		}
 		//#endregion
 
+		//#region tones
+		/** Map a configured `color` value onto the picker's vocabulary. */
+		function toneOf(color) {
+			if (typeof color === "string" && Object.prototype.hasOwnProperty.call(TONE_BY_ID, color)) return color;
+			return typeof color === "string" && color.length > 0 ? "custom" : "info";
+		}
+		//#endregion
+
+		//#region styles
+		/** Identifier of the label sheet: its own `data-plugin-css` and lookup key. */
+		const STYLE_ID = PACKAGE_NAME + "/model-badge.css";
+
+		/** Identifier of the configuration page's sheet, installed by its entry. */
+		const PAGE_CSS_ID = PACKAGE_NAME + "/settings.css";
+
+		/** Install one stylesheet node unless this plugin already added it. */
+		function installSheet(id, css) {
+			if (typeof document === "undefined") return;
+			if (document.querySelector("style[data-plugin-css=" + JSON.stringify(id) + "]") !== null) return;
+			const tag = document.createElement("style");
+			tag.dataset.plugin = PACKAGE_NAME;
+			tag.dataset.pluginCss = id;
+			tag.textContent = css;
+			document.head.appendChild(tag);
+		}
+
+		/** Remove one stylesheet node this plugin installed, matched by its id. */
+		function removeSheet(id) {
+			if (typeof document === "undefined") return;
+			const selector = "style[data-plugin-css=" + JSON.stringify(id) + "]";
+			document.querySelectorAll(selector).forEach((tag) => tag.remove());
+		}
+		//#endregion
+
+		//#region lazy page
+		/** The client plugin context; the page entry is registered from apply(). */
+		let pageCtx;
+
+		/**
+		 * Load the configuration page's Client artifact once.
+		 *
+		 * `require.async` resolves a chunk relative to this package, so the editor
+		 * parses, links, and fetches its catalog only when the Plugins page asks
+		 * for it. A failed load clears the cache, so the next mount retries.
+		 * @returns a promise of the editor's exports.
+		 */
+		let settingsModule;
+		function loadSettings() {
+			if (settingsModule === undefined) {
+				settingsModule = require.async("./settings.js");
+				settingsModule.catch(() => {
+					settingsModule = undefined;
+				});
+			}
+			return settingsModule;
+		}
+
+
+		/** Shown while `settings.js` is on the wire. */
+		function PageLoading({ t }) {
+			return React.createElement("div", { className: "dsh-mb-empty", children: t("loading") });
+		}
+
+		/**
+		 * The page's slot entry: paints a loading row, loads `settings.js` once,
+		 * installs its sheet while mounted, and renders the page it exports with
+		 * the wiring that page expects — the shared form, the catalog transport,
+		 * and the same tone table and pill builder the label uses, so the preview
+		 * cannot drift.
+		 *
+		 * React 18 has no `use` hook, and the composer half has to keep working on
+		 * whatever React the page's module table provides, so the mount effect
+		 * stores the loaded module and re-renders once instead.
+		 * @param props - the entry's own `{ view }` from the Plugins page; `ctx` is
+		 * the client plugin context this factory closed over.
+		 */
+		function PageEntry({ props }) {
+			const t = pageCtx.locale.bind(NS);
+			const [settings, setSettings] = React.useState(null);
+			React.useEffect(() => {
+				let live = true;
+				loadSettings().then((loaded) => {
+					if (live) setSettings(loaded);
+				}).catch((error) => {
+					if (live) console.error("dsh-model-badge: configuration page failed to load", error);
+				});
+				return () => {
+					live = false;
+				};
+			}, []);
+			React.useEffect(() => {
+				if (settings === null) return;
+				installSheet(PAGE_CSS_ID, settings.styles);
+				return () => removeSheet(PAGE_CSS_ID);
+			}, [settings]);
+			if (settings === null) return React.createElement(PageLoading, { t });
+			return React.createElement(settings.ConfigPage, {
+				props,
+				ctx: { form, remote: pageCtx.remote, t, tones: TONES, toneOf, preview: pill }
+			});
+		}
+		//#endregion
+
 		//#region plugin
-		/** Required services: the slot registry and the settings form transport. */
-		const inject = ["slots", "configForms"];
+		/**
+		 * Required services. `remote.session` is listed explicitly, not implied by
+		 * `remote`: the picker reads the model catalog through that namespace, and
+		 * without the declaration `ctx.remote.session` is absent, which silently
+		 * degraded the pickers to free-text inputs. The catalog is fetched once by the
+		 * editor in settings.js; the label seat reads none of it, because
+		 * `provider` and `model` reach it through the selector's props.
+		 */
+		const inject = ["slots", "configForms", "remote", "remote.session", "locale"];
 
 		/** The entry's settings form, assigned by `apply`; stable across renders. */
 		let form;
@@ -206,35 +414,84 @@ window.__ModuleLoader__.load({
 		 * @param ctx - Client plugin context.
 		 */
 		function apply(ctx) {
+			pageCtx = ctx;
+			const t = ctx.locale.bind(NS);
+			ctx.effect(() => ctx.locale.register(NS, { zh, en }), "model-badge: dictionaries");
+
+			// The stylesheet is a resource like any other: installed while this
+			// plugin is mounted, removed with the fiber that added it. Re-checked
+			// here rather than at factory time so a reload that leaves the module
+			// resident but drops its styles reinstalls them.
+			ctx.effect(() => {
+				installSheet(STYLE_ID, labelCss);
+				return () => removeSheet(STYLE_ID);
+			}, "model-badge: styles");
+
 			form = ctx.configForms.get(ENTRY_ID);
 			ctx.effect(() => () => {
 				void form.dispose();
 			}, "model-label: settings form");
 
+			/**
+			 * Claim the label seat while the rules are non-empty. The claim is a
+			 * registration in a `single` slot the selector declares lazily, so it
+			 * can be rejected; a rejection must not take the plugin's other work
+			 * down, and the next settings change retries it.
+			 */
 			let disposeSlot;
-			const sync = () => {
-				const wanted = servesRules(form.getSnapshot());
-				if (wanted && disposeSlot === undefined) disposeSlot = ctx.slots.inject("conversation.input.model.label", () => ctx.slots.register({
-					name: "conversation.input.model.label",
-					// This slot is `single`, and the shipped 1017 occupant sits at
-					// priority 0. Take a lower number to shadow it: the registry
-					// rejects a second occupant at the same priority.
-					priority: -1
-				}, LocalModelLabel));
-				else if (!wanted && disposeSlot !== undefined) {
-					disposeSlot();
-					disposeSlot = undefined;
+			const claim = () => {
+				if (disposeSlot === undefined) {
+					try {
+						disposeSlot = ctx.slots.inject("conversation.input.model.label", () => ctx.slots.register({
+							name: "conversation.input.model.label",
+							// This slot is `single`, and the shipped 1017 occupant sits
+							// at priority 0. Take a lower number to shadow it: the
+							// registry rejects a second occupant at the same priority.
+							priority: -1,
+							// A slot's `inject` reaches only the entries that slot itself
+							// declares, so declare what this plugin's own label needs.
+							// The catalog is served by `remote.session`, which `inject`
+							// above keeps available.
+							inject: (sessionId) => ({
+								directory: ctx.remote?.session?.modelDirectoryFor?.(sessionId)
+							}),
+							locale: NS
+						}, LocalModelLabel));
+					} catch (error) {
+						console.error("dsh-model-badge: could not claim the model label seat", error);
+					}
 				}
+			};
+			const release = () => {
+				if (disposeSlot === undefined) return;
+				try {
+					disposeSlot();
+				} catch (error) {
+					console.error("dsh-model-badge: could not release the model label seat", error);
+				}
+				disposeSlot = undefined;
+			};
+			const sync = () => {
+				if (servesRules(form.getSnapshot())) claim();
+				else release();
 			};
 			ctx.effect(() => {
 				const off = form.subscribe(sync);
 				sync();
 				return () => {
 					off();
-					if (disposeSlot !== undefined) disposeSlot();
-					disposeSlot = undefined;
+					release();
 				};
-			}, "model-label: label occupant");
+			}, "model-badge: label occupant");
+
+			// The bundle's own configuration page, keyed by package name. The editor
+			// is a separate Client artifact (settings.js) loaded on demand, so the
+			// composer label never pays for its catalog fetch, form state, or styles.
+			ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({
+				name: "plugins.bundle.config",
+				key: PACKAGE_NAME,
+				locale: NS
+			}, (props) => React.createElement(PageEntry, { props })));
 		}
 		//#endregion
 
