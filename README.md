@@ -26,9 +26,10 @@ Two behavioural rules:
 dsh plugin --profile <name> add dsh-model-badge
 ```
 
-Configure it afterwards in **Settings → Plugins → dsh-model-badge**: add rules, pick a
-provider and model from the catalog, type the badge text, choose a tone, and watch the
-preview update. Saving applies live — no restart.
+Open the bundle's detail page (**Settings → Plugins → dsh-model-badge**) to configure
+it: add rules, pick a provider and model from the catalog, type the badge text, choose a
+tone, and watch the preview update. Saving applies live — no restart. The page is its own
+client artifact, loaded the first time you open it.
 
 Or write the profile's `cordis.patch.yml` directly:
 
@@ -45,7 +46,7 @@ Or write the profile's `cordis.patch.yml` directly:
         color: success
 ```
 
-Both edit the same field; a save from the page lands in this file.
+Both edit the same `labels` field; a save from the page lands in this file.
 
 ## Rules
 
@@ -61,12 +62,17 @@ Both edit the same field; a save from the page lands in this file.
 
 | Form | Example | Result |
 |---|---|---|
-| Tone name | `info` `success` `warning` `danger` | Coloured text over the same colour at 10–12% |
+| Tone name | `info` `success` `warning` `danger` `neutral` | Coloured text over the same colour at 10–12% |
 | Theme token | `--dsw-alias-state-success-primary` | That token as text colour, `info` tint |
 | CSS colour | `#c026d3` | That colour as text colour, `info` tint |
 
-Tones are the Harness tag component's own. Both tones and tokens follow the light and dark
-palettes automatically.
+Four of the tones are the Harness tag component's own; `neutral` is this plugin's own
+addition, drawn from the secondary label colour. Both tones and tokens follow the light
+and dark palettes automatically.
+
+Matching is evaluated per model, not per rule: every rule whose `provider` matches and
+whose `model`/`name` are either unset or equal gets a pill. A `provider`-only rule
+therefore marks every model of that provider.
 
 ## How it works
 
@@ -76,14 +82,15 @@ cordis.patch.yml labels
     → settings.describe (only volatile fields are projected)
       → browser configForms mirror
         → ctx.configForms.get('model-badge')
-          → the component subscribes; edits re-render without a restart
+          → the badge, and the page's preview, subscribe; edits re-render without a restart
 ```
 
 Badge geometry and tones are copied from the Harness' own tag stylesheet
 (`border-radius:999px`, `padding:1px 8px`, `font-size:11px`, `line-height:17px`,
 `color-mix(... 10%, transparent)`), so a badge is visually indistinguishable from a
 first-party one. No Harness Client package is imported — the plugin draws the pill itself
-and styles it only with `--dsw-alias-*` tokens.
+and styles it only with `--dsw-alias-*` tokens. `dsh.client.inject` only orders plugin
+activation; it is not a runtime dependency.
 
 ## Known limitations
 
@@ -91,14 +98,15 @@ and styles it only with `--dsw-alias-*` tokens.
   `single` slot. Whenever rules are configured, this plugin claims it at `priority: -1`
   so it outranks the shipped `@deepseek-ai/dsh-client-ui-deepseek-model-label-1017`
   occupant (which sits at `0`). If a future Harness release changes that occupant's
-  priority, the claim can break — the symptom is the console error `single slot
-  "conversation.input.model.label" already has a registration`, with no badges rendered.
+  priority, the claim is refused and logged — the composer keeps the shipped label
+  instead of losing it.
 
 - **The official Flash marker is restated, not inherited.** Because claiming the seat
   replaces the shipped occupant, the plugin carries its own copy of the conditions that
   produce the `1017` badge (provider `deepseek-official` / `deepseek-account`, model
-  `deepseek-flash`, name `DeepSeek-V4.1-Flash`). A Harness release that changes those
-  conditions will not change this copy.
+  `deepseek-flash`, name `DeepSeek-V4.1-Flash`). Those built-in rules are consulted only
+  for models no configured rule matches: configure one rule and the official marker stays,
+  configure a rule for the same model and yours wins.
 
 - **Pills are text, not actions.** The seat is inline content; clicks, focus and
   selection stay with the model selector.
@@ -109,15 +117,15 @@ and styles it only with `--dsw-alias-*` tokens.
   (`settings.configure({ auto: false })`), so the same field is not edited by two
   different UIs.
 
-- **Page copy follows the UI language.** The configuration page registers its own
-  dictionary in the `model-badge` locale namespace and reads it through
-  `ctx.locale.bind()`, so switching the Harness language switches the page's labels,
-  placeholders and save status. Provider and model names are not translated: they are
-  spelled as the Host catalog spells them.
+- **Page copy follows the UI language.** The page reads its copy from the plugin's own
+  `model-badge` locale namespace through `ctx.locale.bind()`, so switching the Harness
+  language switches its labels, placeholders and save status. Provider and model names
+  are not translated: they are spelled as the Host catalog spells them.
 
-- **Styles are owned by `apply`.** Both the badge and the page stylesheet are constants;
-  `apply` installs the combined sheet in a `ctx.effect` and removes it when the plugin
-  unloads, so nothing is written to the document while the module is merely loaded.
+- **Styles are owned by `apply`.** The badge sheet and the page sheet are constants;
+  `apply` installs the badge sheet in a `ctx.effect` and removes it when the plugin
+  unloads, and the page installs its own sheet while it is mounted. Nothing is written to
+  the document while a module is merely loaded.
 
 Verified against `@deepseek-ai/dsh-desktop-runtime` **0.2.1-rc.3**.
 
@@ -126,7 +134,8 @@ Verified against `@deepseek-ai/dsh-desktop-runtime` **0.2.1-rc.3**.
 | File | Role |
 |---|---|
 | `index.js` | Host half: declares `Config`, disables the generated generic form |
-| `client.js` | Browser half: claims the seat per rules, reads config, draws the pill, registers the configuration page and its copy |
+| `client.js` | Browser half: claims the seat per rules, reads config, draws the pill, registers the configuration page entry and the copy both halves show |
+| `settings.js` | Configuration page, loaded on demand through `require.async` |
 | `cordis.patch.yml` | Bundle patch that mounts the plugin |
 | `locale/*.json` | Display name and description |
 | `icon.svg` | Plugin icon |
