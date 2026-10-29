@@ -26,7 +26,11 @@ Two behavioural rules:
 dsh plugin --profile <name> add dsh-model-badge
 ```
 
-Then configure it in that profile's `cordis.patch.yml`:
+Configure it afterwards in **Settings → Plugins → dsh-model-badge**: add rules, pick a
+provider and model from the catalog, type the badge text, choose a tone, and watch the
+preview update. Saving applies live — no restart.
+
+Or write the profile's `cordis.patch.yml` directly:
 
 ```yaml
 - id: model-badge
@@ -41,8 +45,7 @@ Then configure it in that profile's `cordis.patch.yml`:
         color: success
 ```
 
-Saving the file applies the change live — no restart. Changes to the plugin's own client
-bundle need a restart.
+Both edit the same field; a save from the page lands in this file.
 
 ## Rules
 
@@ -58,11 +61,12 @@ bundle need a restart.
 
 | Form | Example | Result |
 |---|---|---|
-| Tone name | `info` `success` `warning` `danger` `neutral` | Coloured text over the same colour at 10–12% |
+| Tone name | `info` `success` `warning` `danger` | Coloured text over the same colour at 10–12% |
 | Theme token | `--dsw-alias-state-success-primary` | That token as text colour, `info` tint |
 | CSS colour | `#c026d3` | That colour as text colour, `info` tint |
 
-Tones and tokens follow the light and dark palettes automatically.
+Tones are the Harness tag component's own. Both tones and tokens follow the light and dark
+palettes automatically.
 
 ## How it works
 
@@ -99,9 +103,21 @@ and styles it only with `--dsw-alias-*` tokens.
 - **Pills are text, not actions.** The seat is inline content; clicks, focus and
   selection stay with the model selector.
 
-- **Rules live in configuration, not in a settings page.** `labels` is a volatile field,
-  so it applies live, but the plugin ships no `plugins.item` card — edit
-  `cordis.patch.yml`.
+- **Rules live in configuration, not in a generated settings form.** This package ships
+  its own page through `plugins.bundle.config`, shown on the bundle's detail page under
+  Settings → Plugins. `index.js` turns the auto-generated form off for this entry
+  (`settings.configure({ auto: false })`), so the same field is not edited by two
+  different UIs.
+
+- **Page copy follows the UI language.** The configuration page registers its own
+  dictionary in the `model-badge` locale namespace and reads it through
+  `ctx.locale.bind()`, so switching the Harness language switches the page's labels,
+  placeholders and save status. Provider and model names are not translated: they are
+  spelled as the Host catalog spells them.
+
+- **Styles are owned by `apply`.** Both the badge and the page stylesheet are constants;
+  `apply` installs the combined sheet in a `ctx.effect` and removes it when the plugin
+  unloads, so nothing is written to the document while the module is merely loaded.
 
 Verified against `@deepseek-ai/dsh-desktop-runtime` **0.2.1-rc.3**.
 
@@ -109,8 +125,8 @@ Verified against `@deepseek-ai/dsh-desktop-runtime` **0.2.1-rc.3**.
 
 | File | Role |
 |---|---|
-| `index.js` | Host half: declares `Config`, no runtime behaviour |
-| `client.js` | Browser half: claims the seat per rules, reads config, draws the pill |
+| `index.js` | Host half: declares `Config`, disables the generated generic form |
+| `client.js` | Browser half: claims the seat per rules, reads config, draws the pill, registers the configuration page and its copy |
 | `cordis.patch.yml` | Bundle patch that mounts the plugin |
 | `locale/*.json` | Display name and description |
 | `icon.svg` | Plugin icon |

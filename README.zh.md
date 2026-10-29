@@ -23,7 +23,10 @@
 dsh plugin --profile <名字> add dsh-model-badge
 ```
 
-然后在该 profile 的 `cordis.patch.yml` 里配置：
+安装后在 **设置 → 插件 → dsh-model-badge** 的详情页里配置：添加规则、从下拉里选
+provider 和模型、填写胶囊文字、挑选色调，右侧实时预览。改完点保存即时生效，无需重启。
+
+也可以直接写 profile 的 `cordis.patch.yml`：
 
 ```yaml
 - id: model-badge
@@ -38,7 +41,7 @@ dsh plugin --profile <名字> add dsh-model-badge
         color: success
 ```
 
-保存即生效，无需重启。改动插件自身的客户端 bundle 才需要重启。
+两种方式改的是同一份配置，界面保存后会出现在这个文件里。
 
 ## 规则字段
 
@@ -54,11 +57,11 @@ dsh plugin --profile <名字> add dsh-model-badge
 
 | 写法 | 例子 | 效果 |
 |---|---|---|
-| 色调名 | `info` `success` `warning` `danger` `neutral` | 彩色文字 + 同色 10–12% 底色 |
+| 色调名 | `info` `success` `warning` `danger` | 彩色文字 + 同色 10–12% 底色 |
 | 主题变量 | `--dsw-alias-state-success-primary` | 该变量作文字色，配 `info` 底色 |
 | CSS 颜色 | `#c026d3` | 该颜色作文字色，配 `info` 底色 |
 
-色调与主题变量都会随深/浅色主题自动切换。
+色调名取自 Harness 标签组件自身。色调与主题变量都会随深/浅色主题自动切换。
 
 ## 工作原理
 
@@ -91,8 +94,17 @@ cordis.patch.yml 的 labels
 
 - **胶囊是文字，不是操作。** 该座位只承载内联内容；点击、焦点与选择仍归模型选择器。
 
-- **规则在配置文件，不在设置页。** `labels` 是 volatile 字段，改动即时生效，但插件
-  没有提供 `plugins.item` 卡片 —— 需要编辑 `cordis.patch.yml`。
+- **规则在配置文件，不在自动生成的设置表单里。** `labels` 是 volatile 字段，改动即时生效。
+  本插件自带配置页（`plugins.bundle.config`），位于「设置 → 插件 → dsh-model-badge」的
+  详情页。`index.js` 为本条目关掉自动生成的表单（`settings.configure({ auto: false })`），
+  避免同一个字段被两套界面编辑。
+
+- **配置页文案跟随界面语言。** 配置页在 `model-badge` 语言命名空间里注册自己的字典，并通过
+  `ctx.locale.bind()` 读取，因此切换 Harness 界面语言时，标签、占位符和保存状态一起切换。
+  provider 与模型名不翻译，按 Host 目录里的原样显示。
+
+- **样式由 `apply` 持有。** 胶囊样式与页面样式都只是常量；`apply` 在 `ctx.effect` 里安装合并后的
+  样式表，插件卸载时一并移除，模块仅仅是加载、未生效时不会向文档写入任何东西。
 
 已在 `@deepseek-ai/dsh-desktop-runtime` **0.2.1-rc.3** 上验证。
 
@@ -100,8 +112,8 @@ cordis.patch.yml 的 labels
 
 | 文件 | 角色 |
 |---|---|
-| `index.js` | Host 侧：声明 `Config`，无运行逻辑 |
-| `client.js` | 浏览器侧：按规则占用座位、读配置、绘制胶囊 |
+| `index.js` | Host 侧：声明 `Config`，关闭自动生成的通用表单 |
+| `client.js` | 浏览器侧：按规则占用座位、读配置、绘制胶囊，注册配置页及其文案 |
 | `cordis.patch.yml` | 挂载插件用的 bundle patch |
 | `locale/*.json` | 显示名称与描述 |
 | `icon.svg` | 插件图标 |
