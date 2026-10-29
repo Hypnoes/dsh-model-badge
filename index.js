@@ -44,4 +44,19 @@ export const Config = z.object({
 	labels: z.array(LabelRule).default([]).volatile()
 });
 
-export function apply() {}
+/**
+ * Mount: claim the entry's settings page policy.
+ *
+ * `auto: false` stops the Plugins page from generating a schema form beside
+ * this entry — the browser half ships its own page through
+ * `plugins.bundle.config`, and the generated form would offer a second editor
+ * for the same field. Per the settings service, that policy belongs to the
+ * `apply` of the plugin whose entry it is, inside an optional `settings` child.
+ * It touches only this entry: no other plugin's form, page, or order changes.
+ * @param ctx - Host plugin context.
+ */
+export function apply(ctx) {
+	ctx.inject(["settings"], (child) => {
+		child.effect(() => child.settings.configure({ auto: false }, child.fiber), "model-badge: settings page policy");
+	});
+}

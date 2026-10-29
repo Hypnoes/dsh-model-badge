@@ -41,7 +41,7 @@
     }
   },
   "peerDependencies": {
-    "@deepseek-ai/schemastery": ">=3.0.0"
+    "@deepseek-ai/schemastery": "^3.18.0"
   },
   "engines": {
     "node": ">=22"
