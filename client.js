@@ -338,10 +338,10 @@ window.__ModuleLoader__.load({
 			document.head.appendChild(tag);
 		}
 
-		/** Remove only this plugin's stylesheet nodes. */
+		/** Remove this plugin's stylesheet nodes, matched by this sheet's own id. */
 		function removeStyles() {
 			if (typeof document === "undefined") return;
-			const selector = "style[data-plugin=" + JSON.stringify(PACKAGE_NAME) + "]";
+			const selector = "style[data-plugin-css=" + JSON.stringify(STYLE_ID) + "]";
 			document.querySelectorAll(selector).forEach((tag) => tag.remove());
 		}
 		//#endregion
@@ -735,7 +735,9 @@ window.__ModuleLoader__.load({
 		 * Required services. `remote.session` is listed explicitly, not implied by
 		 * `remote`: the picker reads the model catalog through that namespace, and
 		 * without the declaration `ctx.remote.session` is absent, which silently
-		 * degraded the pickers to free-text inputs.
+		 * degraded the pickers to free-text inputs. The catalog is fetched once by
+		 * `ConfigFormBody`; the label seat reads none of it, because `provider`
+		 * and `model` reach it through the selector's props.
 		 */
 		const inject = ["slots", "configForms", "remote", "remote.session", "locale"];
 
