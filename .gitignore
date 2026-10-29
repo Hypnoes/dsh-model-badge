@@ -2,3 +2,9 @@ node_modules/
 *.tgz
 .DS_Store
 Thumbs.db
+
+# Scratch output from local debugging and tooling
+*.tmp
+*.log
+.audit/
+.spec/
