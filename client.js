@@ -264,16 +264,23 @@ window.__ModuleLoader__.load({
 		 * Render the catalog name unchanged, or the name plus every badge — with
 		 * the marker's own markup: label, name span, a space, then the tag.
 		 * Non-interactive: the model selector owns clicks, focus and selection.
+		 *
+		 * The slot declares `inject` in apply(), so `provider` and `model` carry
+		 * the catalog identities. A bare `undefined` is still possible right
+		 * after a declaration change, and a throw here blanks the model selector
+		 * itself: fall back to the catalog name rather than to an error.
 		 */
 		function LocalModelLabel({ provider, model }) {
 			const snapshot = React.useSyncExternalStore(subscribeRules, readSnapshot, readSnapshot);
+			const name = model !== null && typeof model === "object" ? model.name : undefined;
+			if (provider === undefined || model === undefined) return name;
 			const badges = badgesFor(readRules(snapshot.value), provider, model);
-			if (badges.length === 0) return model.name;
+			if (badges.length === 0) return name;
 			const [first, ...rest] = badges;
 			return jsxs("span", {
 				className: "dsh-model-badge-label",
 				children: [
-					jsx("span", { children: model.name }),
+					jsx("span", { children: name }),
 					" ",
 					pill(first),
 					...rest.map((rule) => pill(rule))
@@ -565,11 +572,6 @@ window.__ModuleLoader__.load({
 		//#endregion
 
 		//#region page
-		/** Summary shown above the page's form. */
-		function ConfigSummary({ t }) {
-			return t("summary");
-		}
-
 		/**
 		 * The page's form: a staged copy of the entry's rules with one atomic save.
 		 *
@@ -579,9 +581,10 @@ window.__ModuleLoader__.load({
 		 * concurrent change is refused and the draft is kept for the user.
 		 */
 		function ConfigForm({ form, groups, t }) {
+			// `form` is the configForms controller: React wants a subscribe
+			// function and a getSnapshot function, not the snapshot itself.
 			const snapshot = React.useSyncExternalStore(
 				React.useCallback((listener) => form.subscribe(listener), [form]),
-				React.useCallback(() => form.getSnapshot(), [form]),
 				React.useCallback(() => form.getSnapshot(), [form])
 			);
 
@@ -699,24 +702,29 @@ window.__ModuleLoader__.load({
 
 		/**
 		 * The page's entry point. The plugin page supplies `{ view }`; the wiring
-		 * comes from `PageContext`.
-		 */
-		/**
-		 * The page's entry point. The plugin page supplies `{ view }`; the wiring
-		 * comes from `PageContext`. Without that wiring (a page mounted outside
-		 * this plugin's registration) the fallback reads the first shipped
-		 * locale, because no reader is bound yet.
+		 * comes from `PageContext`, and both views are rendered here so the
+		 * summary receives the same locale reader as the form.
 		 */
 		function ConfigPage({ view }) {
 			const ctx = React.useContext(PageContext);
+			// Without the wiring (a page mounted outside this plugin's
+			// registration) the fallback reads the first shipped locale, because
+			// no reader is bound yet.
 			const t = ctx === undefined ? (key) => zh[key] : ctx.t;
 			if (ctx === undefined) {
 				return jsx("div", { className: "dsh-mb-empty", children: t("notReady") });
 			}
-			const catalog = useCatalog(ctx.remote);
-			return view === "summary"
-				? jsx(ConfigSummary, { t: ctx.t })
-				: jsx(ConfigForm, { form: ctx.form, groups: catalog.groups, t: ctx.t });
+			if (view === "summary") return t("summary");
+			return jsx(ConfigFormBody, { form: ctx.form, remote: ctx.remote, t: ctx.t });
+		}
+
+		/**
+		 * Load the model catalog for the pickers, then mount the form. Split from
+		 * `ConfigPage` so the summary view renders without fetching anything.
+		 */
+		function ConfigFormBody({ form, remote, t }) {
+			const catalog = useCatalog(remote);
+			return jsx(ConfigForm, { form, groups: catalog.groups, t });
 		}
 		//#endregion
 
@@ -759,28 +767,55 @@ window.__ModuleLoader__.load({
 				void form.dispose();
 			}, "model-label: settings form");
 
+			/**
+			 * Claim the label seat while the rules are non-empty. The claim is a
+			 * registration in a `single` slot the selector declares lazily, so it
+			 * can be rejected; a rejection must not take the plugin's other work
+			 * down, and the next settings change retries it.
+			 */
 			let disposeSlot;
-			const sync = () => {
-				const wanted = servesRules(form.getSnapshot());
-				if (wanted && disposeSlot === undefined) disposeSlot = ctx.slots.inject("conversation.input.model.label", () => ctx.slots.register({
-					name: "conversation.input.model.label",
-					// This slot is `single`, and the shipped 1017 occupant sits at
-					// priority 0. Take a lower number to shadow it: the registry
-					// rejects a second occupant at the same priority.
-					priority: -1
-				}, LocalModelLabel));
-				else if (!wanted && disposeSlot !== undefined) {
-					disposeSlot();
-					disposeSlot = undefined;
+			const claim = () => {
+				if (disposeSlot === undefined) {
+					try {
+						disposeSlot = ctx.slots.inject("conversation.input.model.label", () => ctx.slots.register({
+							name: "conversation.input.model.label",
+							// This slot is `single`, and the shipped 1017 occupant sits
+							// at priority 0. Take a lower number to shadow it: the
+							// registry rejects a second occupant at the same priority.
+							priority: -1,
+							// A slot's `inject` reaches only the entries that slot itself
+							// declares, so declare what this plugin's own label needs.
+							// The catalog is served by `remote.session`, which `inject`
+							// above keeps available.
+							inject: (sessionId) => ({
+								directory: ctx.remote?.session?.modelDirectoryFor?.(sessionId)
+							}),
+							locale: NS
+						}, LocalModelLabel));
+					} catch (error) {
+						console.error("dsh-model-badge: could not claim the model label seat", error);
+					}
 				}
+			};
+			const release = () => {
+				if (disposeSlot === undefined) return;
+				try {
+					disposeSlot();
+				} catch (error) {
+					console.error("dsh-model-badge: could not release the model label seat", error);
+				}
+				disposeSlot = undefined;
+			};
+			const sync = () => {
+				if (servesRules(form.getSnapshot())) claim();
+				else release();
 			};
 			ctx.effect(() => {
 				const off = form.subscribe(sync);
 				sync();
 				return () => {
 					off();
-					if (disposeSlot !== undefined) disposeSlot();
-					disposeSlot = undefined;
+					release();
 				};
 			}, "model-badge: label occupant");
 
