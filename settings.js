@@ -112,10 +112,16 @@ window.__ModuleLoader__.load({
 
 		/** A blank rule the editor starts a new row from. */
 		function blankRule(provider) {
-			return { provider: provider ?? "", model: undefined, name: undefined, badge: "", color: undefined };
+			return { provider: provider ?? "", model: undefined, badge: "", color: undefined };
 		}
 
-		/** Rules as the editor holds them, with unset optional fields dropped. */
+		/**
+		 * Rules as the editor holds them, with unset optional fields dropped.
+		 *
+		 * A rule's optional `name` is passed through untouched: it is normally
+		 * derived from `model` by the Host schema, and overwriting it with
+		 * `undefined` here would turn a redundant field into a write.
+		 */
 		function toRules(value) {
 			const raw = value !== null && typeof value === "object" && Array.isArray(value.labels) ? value.labels : [];
 			return raw
@@ -135,6 +141,16 @@ window.__ModuleLoader__.load({
 		}
 		function stableRule(rule) {
 			return [rule.provider ?? "", rule.model ?? "", rule.name ?? "", rule.badge ?? "", rule.color ?? ""];
+		}
+
+		/**
+		 * Whether this deployment's settings accept writes. The form status alone
+		 * is not enough: it stays "loading" until the settings mirror answers, which
+		 * an unopened Plugins page never causes, so a missing status would block a
+		 * page that is perfectly writable.
+		 */
+		function editable(snapshot) {
+			return snapshot.status !== "unavailable" && snapshot.writable !== false;
 		}
 
 		/**
@@ -326,7 +342,7 @@ window.__ModuleLoader__.load({
 			const dirty = !sameRules(draft, stored);
 			const problems = validate(draft, t);
 			const blocked = Object.keys(problems).length > 0;
-			const unwritable = snapshot.status !== "ready" || snapshot.writable === false;
+			const unwritable = !editable(snapshot);
 			const canSave = dirty && !blocked && !busy && !unwritable;
 
 			const changeRule = React.useCallback((index, next) => {
@@ -347,8 +363,7 @@ window.__ModuleLoader__.load({
 				const labels = draft.map((rule) => {
 					const entry = { provider: rule.provider.trim(), badge: rule.badge.trim() };
 					if (rule.model !== undefined) entry.model = rule.model;
-					if (rule.name !== undefined) entry.name = rule.name;
-					if (rule.color !== undefined) entry.color = rule.color;
+										if (rule.color !== undefined) entry.color = rule.color;
 					return entry;
 				});
 				const accepted = await form.mutate([{ op: "set", path: ["labels"], value: labels }], revision);
