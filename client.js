@@ -135,30 +135,43 @@ window.__ModuleLoader__.load({
 
 		/**
 		 * The shipped tag markup, copied rule for rule: the label wrapper and the
-		 * `Tag` primitive's `data-tone` table. The official occupant wraps the
-		 * name and places the marker as a `Tag` with `tone="info"`, so the
-		 * *geometry* here is enough — colour comes from the `data-tone` rules —
-		 * and badges placed by this plugin render exactly like the shipped `1017`.
+		 * `Tag` primitive's tag rule. The official occupant wraps the name and
+		 * places the marker as a `Tag` with `tone="info"`, so the *geometry* here
+		 * is enough to render exactly like the shipped `1017`.
 		 *
 		 *   .label{vertical-align:baseline;white-space:nowrap;align-items:center;
 		 *          gap:4px;display:inline-flex}
 		 *   .tag{display:inline-flex;align-items:center;border-radius:999px;
 		 *        corner-shape:round;padding:1px 8px;font-size:11px;
 		 *        line-height:17px;font-weight:500;white-space:nowrap}
-		 *   .tag[data-tone=info]{background:color-mix(in srgb,
-		 *        var(--dsw-alias-state-business-primary) 10%,transparent);
-		 *        color:var(--dsw-alias-state-business-primary)}
 		 *
-		 * A custom colour overrides only those two declarations through the
-		 * `--dsh-mb-fg` / `--dsh-mb-mix` properties pillStyle() sets.
+		 * The host paints a tag from `._tag_…[data-tone=…]`, a selector scoped to
+		 * its own class. This span carries a different class, so the same tone
+		 * colours arrive through the `--dsh-mb-fg` / `--dsh-mb-mix` properties
+		 * pillStyle() sets on every pill, custom colours included.
+		 *
+		 * Two additions to that geometry, both about the seat this label is drawn
+		 * in rather than about the shipped look:
+		 *
+		 * - The name is its own shrinkable box (`min-width:0` + ellipsis). The
+		 *   host clamps the trigger with `max-width`, and the label sits inside a
+		 *   single-line box the host ellipsizes. An inline-flex label is atomic
+		 *   there, so without a shrinkable child the name cannot be shortened:
+		 *   the badge is what gets clipped away, and — because `text-overflow`
+		 *   only reaches inline content, not into a flex box — the name is cut
+		 *   mid-glyph with no ellipsis at all.
+		 * - The pill never shrinks (`flex:none`), so a tight trigger shortens the
+		 *   name and leaves the badge whole. That is the information the badge
+		 *   exists to carry.
 		 *
 		 * `labelCss` is a constant; nothing is written to the document here.
 		 * `apply` installs the sheet inside a `ctx.effect`, which also removes it
 		 * on unload. The configuration page ships its own sheet from `settings.js`.
 		 */
 		const labelCss = [
-			".dsh-model-badge-label{vertical-align:baseline;white-space:nowrap;align-items:center;gap:4px;display:inline-flex}",
-			".dsh-model-badge-pill{display:inline-flex;align-items:center;border-radius:999px;corner-shape:round;padding:1px 8px;font-size:11px;line-height:17px;font-weight:500;white-space:nowrap;background:color-mix(in srgb,var(--dsh-mb-fg) var(--dsh-mb-mix),transparent);color:var(--dsh-mb-fg)}"
+			".dsh-model-badge-label{vertical-align:baseline;white-space:nowrap;align-items:center;gap:4px;display:inline-flex;min-width:0;max-width:100%}",
+			".dsh-model-badge-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}",
+			".dsh-model-badge-pill{display:inline-flex;align-items:center;flex:none;border-radius:999px;corner-shape:round;padding:1px 8px;font-size:11px;line-height:17px;font-weight:500;white-space:nowrap;background:color-mix(in srgb,var(--dsh-mb-fg) var(--dsh-mb-mix),transparent);color:var(--dsh-mb-fg)}"
 		].join("");
 
 		/**
@@ -191,15 +204,19 @@ window.__ModuleLoader__.load({
 		 * One badge as the shipped marker draws it: a tag carrying the text and a
 		 * tone. The composer label and the configuration preview both render this,
 		 * so a badge looks the same in both places.
+		 *
+		 * Colour always arrives through the two custom properties `pillStyle`
+		 * sets, for every tone and not just a custom one. The host's `data-tone`
+		 * table is scoped to its own `Tag` class (`._tag_…[data-tone=info]`), so
+		 * a `data-tone` on this span would never paint anything; the attribute
+		 * stays as the semantic record of the tone.
 		 * @param rule - one matched badge rule.
 		 */
 		function pill(rule) {
-			const tone = toneOf(rule.color);
-			const custom = tone === "custom";
 			return jsx("span", {
 				className: "dsh-model-badge-pill",
-				"data-tone": custom ? undefined : tone,
-				style: custom ? pillStyle(rule.color) : undefined,
+				"data-tone": toneOf(rule.color),
+				style: pillStyle(rule.color),
 				children: rule.badge
 			});
 		}
@@ -280,7 +297,7 @@ window.__ModuleLoader__.load({
 			return jsxs("span", {
 				className: "dsh-model-badge-label",
 				children: [
-					jsx("span", { children: name }),
+					jsx("span", { className: "dsh-model-badge-name", children: name }),
 					" ",
 					pill(first),
 					...rest.map((rule) => pill(rule))

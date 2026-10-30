@@ -4,6 +4,13 @@
 
 ### Fixed
 
+- A tight composer no longer loses the badge. The name is now the part that shrinks
+  (`min-width:0` + ellipsis) while the pill never shrinks (`flex:none`), so a narrow trigger
+  shortens the model name and keeps the badge whole; before, the atomic inline-flex label was
+  hard-clipped, which dropped the badge entirely and cut the name mid-glyph with no ellipsis.
+- Badges carry their configured tone again. The host's `[data-tone=…]` colours are scoped to
+  its own `Tag` class, so a `data-tone` on this plugin's span matched nothing; a tone's token
+  and mix now reach every pill through `--dsh-mb-fg` / `--dsh-mb-mix`, not only custom colours.
 - The configuration page rendered at all: `ConfigForm` passed the snapshot object to
   `useSyncExternalStore` instead of the controller's subscribe/getSnapshot pair, and the
   summary view read `t` from props that never carried it.
