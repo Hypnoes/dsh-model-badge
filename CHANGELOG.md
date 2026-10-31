@@ -22,11 +22,20 @@ Initial release.
 - The configuration page is a separate client artifact (`settings.js`, loaded with
   `require.async`), so the composer label does not pay for its catalog fetch, form
   state, or styles.
+- The configuration page and its summary view read the settings snapshot through the
+  controller's `subscribe`/`getSnapshot` pair, so an open form follows live configuration
+  changes instead of rendering from a stale object.
+- The label seat declares the `inject` and `locale` the model selector relies on, falls
+  back to the plain model name when the host passes no `provider`/`model`, and reclaims
+  the seat on the next settings change if the initial registration was refused.
+- Style teardown matches this plugin's own `data-plugin-css` id, so unloading never
+  removes another sheet that shares the package's `data-plugin`.
 - Badge rules match on provider id, optionally narrowed by model id and catalog name.
 - Several badges per model; per-rule tone (`info`, `success`, `warning`, `danger`,
   `neutral`), theme token, or CSS colour.
 - Zero configuration is inert: with no rules the plugin claims no slot and the shipped
-  `1017` label keeps rendering.
+  `1017` label keeps rendering; built-in `1017` rules apply only to models no configured
+  rule matches.
 - Live config reload through the Host settings seam (`volatile` + `configForms`).
 - Badge geometry, tones, and label markup copied from the Harness tag stylesheet and the
   shipped `1017` occupant; no Harness Client package is imported.
