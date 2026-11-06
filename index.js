@@ -51,12 +51,15 @@ export const Config = z.object({
  * this entry — the browser half ships its own page through
  * `plugins.bundle.config`, and the generated form would offer a second editor
  * for the same field. Per the settings service, that policy belongs to the
- * `apply` of the plugin whose entry it is, inside an optional `settings` child.
- * It touches only this entry: no other plugin's form, page, or order changes.
+ * `apply` of the plugin whose entry it is: the owner must be THIS entry's
+ * fiber, which is `ctx.fiber`. The `settings` child context created by
+ * `ctx.inject` is a different fiber, so passing it would register the policy
+ * under a fiber the settings service never looks up and the generated form
+ * would stay enabled.
  * @param ctx - Host plugin context.
  */
 export function apply(ctx) {
 	ctx.inject(["settings"], (child) => {
-		child.effect(() => child.settings.configure({ auto: false }, child.fiber), "model-badge: settings page policy");
+		child.effect(() => child.settings.configure({ auto: false }, ctx.fiber), "model-badge: settings page policy");
 	});
 }

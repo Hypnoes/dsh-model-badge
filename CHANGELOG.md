@@ -4,6 +4,24 @@
 
 ### Fixed
 
+- The configuration page saves again after the plugin is reloaded. The page called
+  `dispose()` on the settings controller it borrowed from the shared `configForms`
+  service, but that service owns one controller per Host entry and keeps handing out the
+  same instance: a released one refuses every write, so the page showed values while each
+  save came back rejected. No consumer disposes a provider-owned controller now, and the
+  page and the label resolve it through the service on every use instead of caching it.
+- The generated schema form no longer appears beside the custom page. The
+  `settings.configure({ auto: false })` policy was registered under the fiber of the
+  `settings` child context created by `ctx.inject`, while the service looks the policy up
+  by the entry's own fiber, so the policy was never found.
+- A refused save reports a real conflict only when the revision moved; a refusal with an
+  unchanged revision now says the deployment did not accept the change, and logs the
+  facts instead of blaming a concurrent edit.
+- A concurrent change no longer discards the draft being edited, and the write carries
+  the revision read when editing began rather than the one current at save time — the
+  stale-revision check is a guard again instead of a last-writer-wins write.
+- Saving no longer drops a rule's `name` filter, which the page does not edit but the
+  config format supports.
 - The configuration page loads again on Harness builds that name every package-local
   client chunk `client.<name>.js`. The page moved from `settings.js` to
   `client.settings.js` and now registers as a chunk of this package

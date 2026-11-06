@@ -93,7 +93,8 @@ window.__ModuleLoader__.load({
 			cancel: "取消",
 			save: "保存",
 			saving: "保存中…",
-			saveRejected: "保存被拒绝：配置在编辑期间已被修改，草稿已保留，请确认后重试。",
+			saveRejected: "保存被拒绝：配置在编辑期间已被修改，草稿已保留。再次保存会覆盖那次修改。",
+			saveFailed: "保存失败：部署没有接受这次修改，草稿已保留。",
 			notReady: "配置页尚未就绪。",
 			providerLabel: "提供方 / Provider",
 			modelLabel: "模型 / Model",
@@ -125,7 +126,8 @@ window.__ModuleLoader__.load({
 			cancel: "Cancel",
 			save: "Save",
 			saving: "Saving…",
-			saveRejected: "Save rejected: the configuration changed while you were editing. Your draft is kept; review it and retry.",
+			saveRejected: "Save rejected: the configuration changed while you were editing. Your draft is kept; saving again replaces that change.",
+			saveFailed: "Save failed: the deployment did not accept these changes. Your draft is kept.",
 			notReady: "The configuration page is not ready yet.",
 			providerLabel: "Provider",
 			modelLabel: "Model",
@@ -407,6 +409,9 @@ window.__ModuleLoader__.load({
 				return () => removeSheet(PAGE_CSS_ID);
 			}, [settings]);
 			if (settings === null) return React.createElement(PageLoading, { t });
+			// Resolved per render: the provider may have replaced the controller
+			// since the page mounted, and only its current one accepts writes.
+			const form = pageCtx.configForms.get(ENTRY_ID);
 			return React.createElement(settings.ConfigPage, {
 				props,
 				ctx: { form, remote: pageCtx.remote, t, tones: TONES, toneOf, preview: pill }
@@ -425,10 +430,32 @@ window.__ModuleLoader__.load({
 		 */
 		const inject = ["slots", "configForms", "remote", "remote.session", "locale"];
 
-		/** The entry's settings form, assigned by `apply`; stable across renders. */
-		let form;
-		const subscribeRules = (listener) => (form === undefined ? () => {} : form.subscribe(listener));
-		const readSnapshot = () => (form === undefined ? { status: "loading", value: undefined } : form.getSnapshot());
+		/** Returned before the settings service answers, and while it is absent. */
+		const LOADING = Object.freeze({ status: "loading", value: undefined });
+
+		/**
+		 * The entry's settings controller, resolved through the service on every use.
+		 *
+		 * `configForms` owns exactly one controller per Host entry and hands the
+		 * same instance to every reader — the label, this plugin's page, and the
+		 * generated form. The provider releases those controllers when it tears
+		 * down; a consumer must not, because the provider keeps the released
+		 * instance in its map and every later `get` would hand out a controller
+		 * whose writes are refused for good. Resolving through the service (rather
+		 * than caching the object) also follows a controller replaced by a
+		 * provider remount.
+		 */
+		function currentForm() {
+			return pageCtx === undefined ? undefined : pageCtx.configForms.get(ENTRY_ID);
+		}
+		const subscribeRules = (listener) => {
+			const live = currentForm();
+			return live === undefined ? () => {} : live.subscribe(listener);
+		};
+		const readSnapshot = () => {
+			const live = currentForm();
+			return live === undefined ? LOADING : live.getSnapshot();
+		};
 
 		/**
 		 * Register the label only while the configured rules are non-empty, so an
@@ -449,10 +476,10 @@ window.__ModuleLoader__.load({
 				return () => removeSheet(STYLE_ID);
 			}, "model-badge: styles");
 
-			form = ctx.configForms.get(ENTRY_ID);
-			ctx.effect(() => () => {
-				void form.dispose();
-			}, "model-label: settings form");
+			// Touch the shared controller once so the settings mirror starts
+			// reading: the label seat below claims itself from the first snapshot.
+			// Its lifetime belongs to the provider, not to this plugin.
+			ctx.configForms.get(ENTRY_ID);
 
 			/**
 			 * Claim the label seat while the rules are non-empty. The claim is a
@@ -494,11 +521,12 @@ window.__ModuleLoader__.load({
 				disposeSlot = undefined;
 			};
 			const sync = () => {
-				if (servesRules(form.getSnapshot())) claim();
+				if (servesRules(readSnapshot())) claim();
 				else release();
 			};
 			ctx.effect(() => {
-				const off = form.subscribe(sync);
+				const live = ctx.configForms.get(ENTRY_ID);
+				const off = live.subscribe(sync);
 				sync();
 				return () => {
 					off();

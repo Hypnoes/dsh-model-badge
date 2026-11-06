@@ -319,8 +319,12 @@ window.__ModuleLoader__.load({
 		 *
 		 * Reads and writes ride the shared settings form (`configForms`), the same
 		 * transport the label occupant uses, so a save here is what the badges
-		 * show immediately. A write carries the revision read before editing: a
-		 * concurrent change is refused and the draft is kept for the user.
+		 * show immediately. The write carries the revision read when editing
+		 * STARTED, not the one current at save time: that is what makes a
+		 * concurrent change a refusal instead of a silent overwrite. Once a write
+		 * is refused the fresh revision becomes the next baseline, so a second
+		 * press of Save intentionally replaces that change rather than failing
+		 * against a revision that can no longer be reached.
 		 */
 		function ConfigForm({ ctx, catalog }) {
 			const { form, t } = ctx;
@@ -337,13 +341,20 @@ window.__ModuleLoader__.load({
 
 			const stored = React.useMemo(() => toRules(snapshot.value), [snapshot]);
 			const [draft, setDraft] = React.useState(stored);
+			/** Revision the edit began against; `undefined` while nothing is edited. */
+			const [baseline, setBaseline] = React.useState(undefined);
 			const [busy, setBusy] = React.useState(false);
 			const [error, setError] = React.useState(null);
 
-			// Adopt what the Host holds whenever it changes underneath us, unless a
-			// save of our own is in flight.
+			// Adopt what the Host holds only while the draft still matches what it
+			// held before: a concurrent change must not discard edits in progress,
+			// and a save of our own is folded in when it settles.
+			const previousStored = React.useRef(stored);
 			React.useEffect(() => {
-				if (!busy) setDraft(stored);
+				const before = previousStored.current;
+				if (busy) return;
+				previousStored.current = stored;
+				setDraft((current) => (sameRules(current, before) ? stored : current));
 			}, [stored, busy]);
 
 			const dirty = !sameRules(draft, stored);
@@ -353,29 +364,54 @@ window.__ModuleLoader__.load({
 			const canSave = dirty && !blocked && !busy && !unwritable;
 
 			const changeRule = React.useCallback((index, next) => {
+				setBaseline((current) => current ?? snapshot.revision);
 				setDraft((current) => current.map((rule, at) => (at === index ? next : rule)));
-			}, []);
+			}, [snapshot.revision]);
 			const removeRule = React.useCallback((index) => {
+				setBaseline((current) => current ?? snapshot.revision);
 				setDraft((current) => current.filter((_, at) => at !== index));
-			}, []);
+			}, [snapshot.revision]);
 			const addRule = React.useCallback(() => {
+				setBaseline((current) => current ?? snapshot.revision);
 				setDraft((current) => [...current, blankRule(groups[0]?.id)]);
-			}, [groups]);
+			}, [groups, snapshot.revision]);
 
 			const save = async () => {
 				if (!canSave) return;
+				const sent = baseline ?? snapshot.revision;
 				setBusy(true);
 				setError(null);
-				const revision = snapshot.revision;
 				const labels = draft.map((rule) => {
 					const entry = { provider: rule.provider.trim(), badge: rule.badge.trim() };
 					if (rule.model !== undefined) entry.model = rule.model;
-										if (rule.color !== undefined) entry.color = rule.color;
+					if (rule.name !== undefined) entry.name = rule.name;
+					if (rule.color !== undefined) entry.color = rule.color;
 					return entry;
 				});
-				const accepted = await form.mutate([{ op: "set", path: ["labels"], value: labels }], revision);
+				const accepted = await form.mutate([{ op: "set", path: ["labels"], value: labels }], sent);
 				setBusy(false);
-				if (!accepted) setError(t("saveRejected"));
+				if (accepted) {
+					setBaseline(undefined);
+					return;
+				}
+				// A refused write reloads the mirror, so this snapshot is the Host's
+				// current state. A moved revision means a genuine conflict; anything
+				// else is a rejection to report as such instead of blaming a conflict.
+				const latest = form.getSnapshot();
+				if (sent !== undefined && latest.revision !== sent) {
+					setBaseline(latest.revision);
+					setError(t("saveRejected"));
+				} else {
+					// Nothing about the revision moved, so the refusal came from the
+					// deployment itself (validation, overlay, a released controller);
+					// the console keeps the fact the page has no room to show.
+					console.warn("dsh-model-badge: the Host refused the configuration write", {
+						revision: sent,
+						writable: latest.writable,
+						status: latest.status
+					});
+					setError(t("saveFailed"));
+				}
 			};
 
 			if (snapshot.status === "loading" || snapshot.status === "idle") {
@@ -425,7 +461,7 @@ window.__ModuleLoader__.load({
 								className: "dsh-mb-btn",
 								"data-kind": "ghost",
 								disabled: !dirty || busy,
-								onClick: () => { setDraft(stored); setError(null); },
+								onClick: () => { setDraft(stored); setBaseline(undefined); setError(null); },
 								children: t("cancel")
 							}),
 							jsx("button", {
