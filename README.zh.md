@@ -33,12 +33,12 @@ dsh plugin --profile <名字> add dsh-model-badge
 - id: model-badge
   config:
     labels:
-      - provider: scnet
-        model: DeepSeek-V4.1-Flash-1017
+      - provider: deepseek-official
+        model: deepseek-flash
         badge: '1017'
-      - provider: scnet
-        model: Kimi-K3
-        badge: K3
+      - provider: deepseek-account
+        model: deepseek-v4-pro
+        badge: Pro
         color: success
 ```
 

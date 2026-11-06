@@ -37,12 +37,12 @@ Or write the profile's `cordis.patch.yml` directly:
 - id: model-badge
   config:
     labels:
-      - provider: scnet
-        model: DeepSeek-V4.1-Flash-1017
+      - provider: deepseek-official
+        model: deepseek-flash
         badge: '1017'
-      - provider: scnet
-        model: Kimi-K3
-        badge: K3
+      - provider: deepseek-account
+        model: deepseek-v4-pro
+        badge: Pro
         color: success
 ```
 
