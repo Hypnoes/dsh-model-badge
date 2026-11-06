@@ -166,7 +166,7 @@ window.__ModuleLoader__.load({
 		 *
 		 * `labelCss` is a constant; nothing is written to the document here.
 		 * `apply` installs the sheet inside a `ctx.effect`, which also removes it
-		 * on unload. The configuration page ships its own sheet from `settings.js`.
+		 * on unload. The configuration page ships its own sheet from `client.settings.js`.
 		 */
 		const labelCss = [
 			".dsh-model-badge-label{vertical-align:baseline;white-space:nowrap;align-items:center;gap:4px;display:inline-flex;min-width:0;max-width:100%}",
@@ -350,12 +350,17 @@ window.__ModuleLoader__.load({
 		 * `require.async` resolves a chunk relative to this package, so the editor
 		 * parses, links, and fetches its catalog only when the Plugins page asks
 		 * for it. A failed load clears the cache, so the next mount retries.
+		 *
+		 * The chunk name is part of the module-table contract: a relative request
+		 * must be `./client.<name>.js`, and that is also the only file name the
+		 * Host serves as a chunk. Anything else is rejected before a request is
+		 * made.
 		 * @returns a promise of the editor's exports.
 		 */
 		let settingsModule;
 		function loadSettings() {
 			if (settingsModule === undefined) {
-				settingsModule = require.async("./settings.js");
+				settingsModule = require.async("./client.settings.js");
 				settingsModule.catch(() => {
 					settingsModule = undefined;
 				});
@@ -364,13 +369,13 @@ window.__ModuleLoader__.load({
 		}
 
 
-		/** Shown while `settings.js` is on the wire. */
+		/** Shown while `client.settings.js` is on the wire. */
 		function PageLoading({ t }) {
 			return React.createElement("div", { className: "dsh-mb-empty", children: t("loading") });
 		}
 
 		/**
-		 * The page's slot entry: paints a loading row, loads `settings.js` once,
+		 * The page's slot entry: paints a loading row, loads `client.settings.js` once,
 		 * installs its sheet while mounted, and renders the page it exports with
 		 * the wiring that page expects — the shared form, the catalog transport,
 		 * and the same tone table and pill builder the label uses, so the preview
@@ -415,7 +420,7 @@ window.__ModuleLoader__.load({
 		 * `remote`: the picker reads the model catalog through that namespace, and
 		 * without the declaration `ctx.remote.session` is absent, which silently
 		 * degraded the pickers to free-text inputs. The catalog is fetched once by the
-		 * editor in settings.js; the label seat reads none of it, because
+		 * editor in client.settings.js; the label seat reads none of it, because
 		 * `provider` and `model` reach it through the selector's props.
 		 */
 		const inject = ["slots", "configForms", "remote", "remote.session", "locale"];
@@ -502,7 +507,7 @@ window.__ModuleLoader__.load({
 			}, "model-badge: label occupant");
 
 			// The bundle's own configuration page, keyed by package name. The editor
-			// is a separate Client artifact (settings.js) loaded on demand, so the
+			// is a separate Client artifact (client.settings.js) loaded on demand, so the
 			// composer label never pays for its catalog fetch, form state, or styles.
 			ctx.slots.inject("plugins.bundle.config", () => ctx.slots.register({
 				name: "plugins.bundle.config",

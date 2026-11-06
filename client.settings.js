@@ -2,16 +2,23 @@
  * Browser half of dsh-model-badge — configuration page.
  *
  * The editor is its own Client artifact: `client.js` loads it on demand
- * (`require.async("./settings.js")`) when the Plugins page asks for this
+ * (`require.async("./client.settings.js")`) when the Plugins page asks for this
  * bundle's view, so the composer label never pays for the catalog fetch, the
  * form state, or these styles.
+ *
+ * A package-local chunk is `client.<name>.js` and nothing else: the module
+ * table rejects any other file name, and the Host serves a chunk only under
+ * that pattern. It also registers as a chunk of its owning package
+ * (`id` + `chunk`), because the loader files it under `<package>/client.<name>.js`
+ * and the import resolves that same key.
  *
  * Nothing here imports a Harness Client package. React and the jsx runtime come
  * from the page's module table, the stylesheet is a constant installed by the
  * caller through `ctx.effect`, and every colour is a `--dsw-alias-*` token.
  */
 window.__ModuleLoader__.load({
-	id: "dsh-model-badge/settings",
+	id: "dsh-model-badge",
+	chunk: "client.settings.js",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;

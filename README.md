@@ -127,7 +127,7 @@ activation; it is not a runtime dependency.
   unloads, and the page installs its own sheet while it is mounted. Nothing is written to
   the document while a module is merely loaded.
 
-Verified against `@deepseek-ai/dsh-desktop-runtime` **0.2.1-rc.3**.
+Verified against `@deepseek-ai/dsh-desktop-runtime` **0.2.2-rc.1**.
 
 ## Layout
 
@@ -135,7 +135,7 @@ Verified against `@deepseek-ai/dsh-desktop-runtime` **0.2.1-rc.3**.
 |---|---|
 | `index.js` | Host half: declares `Config`, disables the generated generic form |
 | `client.js` | Browser half: claims the seat per rules, reads config, draws the pill, registers the configuration page entry and the copy both halves show |
-| `settings.js` | Configuration page, loaded on demand through `require.async` |
+| `client.settings.js` | Configuration page, a package-local client chunk loaded on demand through `require.async` |
 | `cordis.patch.yml` | Bundle patch that mounts the plugin |
 | `locale/*.json` | Display name and description |
 | `icon.svg` | Plugin icon |

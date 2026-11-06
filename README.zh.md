@@ -113,7 +113,7 @@ cordis.patch.yml 的 labels
   样式表、插件卸载时移除；页面只在自己挂载期间安装自己的样式表。模块仅仅是加载、未生效时
   不会向文档写入任何东西。
 
-已在 `@deepseek-ai/dsh-desktop-runtime` **0.2.1-rc.3** 上验证。
+已在 `@deepseek-ai/dsh-desktop-runtime` **0.2.2-rc.1** 上验证。
 
 ## 文件结构
 
@@ -121,7 +121,7 @@ cordis.patch.yml 的 labels
 |---|---|
 | `index.js` | Host 侧：声明 `Config`，关闭自动生成的通用表单 |
 | `client.js` | 浏览器侧：按规则占用座位、读配置、绘制胶囊，注册配置页入口，并提供两侧共用的文案 |
-| `settings.js` | 配置页，经 `require.async` 按需加载 |
+| `client.settings.js` | 配置页，包内 client chunk，经 `require.async` 按需加载 |
 | `cordis.patch.yml` | 挂载插件用的 bundle patch |
 | `locale/*.json` | 显示名称与描述 |
 | `icon.svg` | 插件图标 |

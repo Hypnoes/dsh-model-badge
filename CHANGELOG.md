@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- The configuration page loads again on Harness builds that name every package-local
+  client chunk `client.<name>.js`. The page moved from `settings.js` to
+  `client.settings.js` and now registers as a chunk of this package
+  (`chunk: "client.settings.js"`); `require.async("./settings.js")` is rejected by the
+  module table before any request, so the Plugins detail page stayed on its loading row.
+
 ## 1.1.0 - 2026-10-31
 
 ### Fixed
